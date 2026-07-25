@@ -1,10 +1,10 @@
-name: AI Vocal Remover Studio
+name: AI Vocal Remover Studio Pro
 
 on:
   workflow_dispatch:
     inputs:
       audio_filename:
-        description: 'Audio File Name (e.g. song.wav or song.mp3)'
+        description: 'Audio File Name (e.g. song.mp3 or song.wav)'
         required: true
         default: 'song.mp3'
 
@@ -14,29 +14,39 @@ jobs:
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/python-versions@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
 
-    - name: Install Demucs AI & PyTorch
+    - name: Install Demucs AI & PyTorch Engine
       run: |
         python -m pip install --upgrade pip
         pip install demucs torch torchaudio
 
-    - name: Separate Vocal & Instrumental
+    - name: Process 100% Vocal Removal
       run: |
         echo "Processing file: ${{ github.event.inputs.audio_filename }}"
+        
+        # Run Meta Demucs AI Engine
         demucs -d cpu --two-stems=vocals "${{ github.event.inputs.audio_filename }}"
         
+        # Dynamic File Search & Copy
         mkdir -p output_music
-        BASENAME=$(basename "${{ github.event.inputs.audio_filename }}" | cut -f 1 -d '.')
-        cp "separated/htdemucs/$BASENAME/no_vocals.wav" "output_music/clean_instrumental.wav"
+        OUTPUT_FILE=$(find separated/ -name "no_vocals.wav" | head -n 1)
+        
+        if [ -f "$OUTPUT_FILE" ]; then
+          cp "$OUTPUT_FILE" output_music/clean_instrumental.wav
+          echo "Processing successful!"
+        else
+          echo "File not found!"
+          exit 1
+        fi
 
     - name: Save Clean Audio Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: Clean-Instrumental-Track
         path: output_music/clean_instrumental.wav
